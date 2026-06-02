@@ -28,6 +28,22 @@ int open(const char *pathname, int flags, ...) {
     return orig_open(pathname, flags, mode);
 }
 
+// Hook para open64()
+int open64(const char *pathname, int flags, ...) {
+    orig_open_t orig_open64 = (orig_open_t)dlsym(RTLD_NEXT, "open64");
+    mode_t mode = 0;
+    if (flags & O_CREAT) {
+        va_list args;
+        va_start(args, flags);
+        mode = va_arg(args, mode_t);
+        va_end(args);
+    }
+    if (pathname && strcmp(pathname, "/proc/meminfo") == 0) {
+        return orig_open64("/opt/mssql/lib/fake_meminfo", flags, mode);
+    }
+    return orig_open64(pathname, flags, mode);
+}
+
 // Hook para openat()
 int openat(int dirfd, const char *pathname, int flags, ...) {
     orig_openat_t orig_openat = (orig_openat_t)dlsym(RTLD_NEXT, "openat");
@@ -44,6 +60,22 @@ int openat(int dirfd, const char *pathname, int flags, ...) {
     return orig_openat(dirfd, pathname, flags, mode);
 }
 
+// Hook para openat64()
+int openat64(int dirfd, const char *pathname, int flags, ...) {
+    orig_openat_t orig_openat64 = (orig_openat_t)dlsym(RTLD_NEXT, "openat64");
+    mode_t mode = 0;
+    if (flags & O_CREAT) {
+        va_list args;
+        va_start(args, flags);
+        mode = va_arg(args, mode_t);
+        va_end(args);
+    }
+    if (pathname && strcmp(pathname, "/proc/meminfo") == 0) {
+        return orig_openat64(dirfd, "/opt/mssql/lib/fake_meminfo", flags, mode);
+    }
+    return orig_openat64(dirfd, pathname, flags, mode);
+}
+
 // Hook para fopen()
 FILE* fopen(const char *pathname, const char *mode) {
     orig_fopen_t orig_fopen = (orig_fopen_t)dlsym(RTLD_NEXT, "fopen");
@@ -51,6 +83,15 @@ FILE* fopen(const char *pathname, const char *mode) {
         return orig_fopen("/opt/mssql/lib/fake_meminfo", mode);
     }
     return orig_fopen(pathname, mode);
+}
+
+// Hook para fopen64()
+FILE* fopen64(const char *pathname, const char *mode) {
+    orig_fopen_t orig_fopen64 = (orig_fopen_t)dlsym(RTLD_NEXT, "fopen64");
+    if (pathname && strcmp(pathname, "/proc/meminfo") == 0) {
+        return orig_fopen64("/opt/mssql/lib/fake_meminfo", mode);
+    }
+    return orig_fopen64(pathname, mode);
 }
 
 // Hook para sysinfo()
@@ -61,7 +102,6 @@ int sysinfo(struct sysinfo *info) {
     }
     int ret = orig_sysinfo(info);
     if (ret == 0) {
-        // Reportar un minimo de 2048 MB (2 GB) de RAM para saltar el chequeo
         info->totalram = 2048ULL * 1024 * 1024 / info->mem_unit;
         info->freeram = info->totalram;
     }
