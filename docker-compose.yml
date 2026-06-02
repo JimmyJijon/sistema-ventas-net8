@@ -20,6 +20,8 @@ services:
       - ACCEPT_EULA=Y
       # Usamos la password definida en el archivo .env local
       - MSSQL_SA_PASSWORD=${SA_PASSWORD}
+      # Limite de memoria para evitar el error de 2000MB en el servidor gratis
+      - MSSQL_MEMORY_LIMIT_MB=1024
       # Zona horaria local para que GETDATE() devuelva la hora correcta
       - TZ=America/Guayaquil
     ports:
@@ -54,6 +56,7 @@ services:
         condition: service_healthy
     environment:
       - SA_PASSWORD=${SA_PASSWORD}
+      - MSSQL_MEMORY_LIMIT_MB=1024
       # Credenciales del correo real (del .env) para inyectar en la BD
       - SMTP_CORREO=${SMTP_CORREO}
       - SMTP_CLAVE=${SMTP_CLAVE}
