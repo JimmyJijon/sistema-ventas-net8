@@ -24,14 +24,18 @@ services:
       - MSSQL_MEMORY_LIMIT_MB=1024
       # Zona horaria local para que GETDATE() devuelva la hora correcta
       - TZ=America/Guayaquil
+      # Engañamos a SQL Server forzando a cargar nuestra biblioteca sysinfo.so
+      - LD_PRELOAD=/opt/mssql/lib/sysinfo.so
     ports:
       # Exponemos el puerto 14333 para evitar conflictos con SQL Server local de Windows
       - "14333:1433"
     volumes:
       # Volumen persistente: los datos de la BD se guardan aunque el contenedor se detenga
       - mssql_data:/var/opt/mssql
-      # Montamos un archivo fake para engañar al lector de /proc/meminfo de SQL Server
-      - ./fake_meminfo:/proc/meminfo:ro
+      # Montamos la biblioteca compilada
+      - ./sysinfo.so:/opt/mssql/lib/sysinfo.so:ro
+      # Montamos el archivo fake en una ruta interna para ser leido por el preload
+      - ./fake_meminfo:/opt/mssql/lib/fake_meminfo:ro
     networks:
       - red-ventas
     # Comprobacion de salud: cada 10s verifica si SQL Server esta listo para aceptar conexiones
