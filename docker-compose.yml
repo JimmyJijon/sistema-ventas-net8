@@ -16,11 +16,16 @@ services:
   db:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: sql_server_ventas
+    # mem_limit + memswap_limit: le decimos a Docker que este contenedor tiene hasta 2GB
+    # disponibles (RAM fisica 1GB + Swap 1GB). Esto engana al verificador de memoria
+    # de SQL Server que exige minimo 2000MB. MSSQL_MEMORY_LIMIT_MB lo limita a 1GB real.
+    mem_limit: 2g
+    memswap_limit: 2g
     environment:
       - ACCEPT_EULA=Y
       # Usamos la password definida en el archivo .env local
       - MSSQL_SA_PASSWORD=${SA_PASSWORD}
-      # Limite de memoria para evitar el error de 2000MB en el servidor gratis
+      # Le decimos a SQL Server que use maximo 1 GB de RAM real
       - MSSQL_MEMORY_LIMIT_MB=1024
       # Zona horaria local para que GETDATE() devuelva la hora correcta
       - TZ=America/Guayaquil
