@@ -1,0 +1,55 @@
+# =============================================
+# SEGURIDAD - NUNCA SUBIR ESTOS ARCHIVOS
+# =============================================
+# Archivo con credenciales reales (correo, Firebase)
+.env
+*.env
+
+# =============================================
+# ARCHIVOS DE COMPILACION Y DESARROLLO LOCAL
+# =============================================
+# Carpetas de compilacion de .NET
+**/bin/
+**/obj/
+
+# Configuracion local de Visual Studio
+.vs/
+*.user
+*.suo
+
+# Paquetes de NuGet (se restauran automaticamente)
+**/packages/
+
+# Archivos de publicacion
+**/publish/
+
+# =============================================
+# DOCKER (mantener los archivos de config, ignorar data)
+# =============================================
+# Datos persistentes del contenedor SQL Server (si se crean localmente)
+mssql-data/
+
+# =============================================
+# SISTEMA OPERATIVO
+# =============================================
+# Windows
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# MacOS
+.DS_Store
+
+# =============================================
+# LOGS
+# =============================================
+*.log
+logs/
+
+# =============================================
+# DOCUMENTACION Y GUIAS DE DESARROLLO
+# =============================================
+# Ignorar archivos markdown de desarrollo/guías, pero conservar el README.md
+Guia_Comandos_Docker.md
+**/*.md
+!**/README.md

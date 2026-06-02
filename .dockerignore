@@ -1,0 +1,28 @@
+# =============================================================
+# .dockerignore - Raiz de la solucion
+# Le dice a Docker que NO copie estas carpetas al contenedor.
+# Esto evita que rutas de Windows (C:\...) contaminen el build de Linux.
+# =============================================================
+
+# Carpetas de compilacion local - contienen rutas de Windows que rompen el build en Linux
+**/bin/
+**/obj/
+
+# Configuracion local de Visual Studio
+**/.vs/
+**/*.user
+**/*.suo
+
+# Archivos de entorno con claves reales - SEGURIDAD
+.env
+*.env
+
+# Carpeta de datos del contenedor SQL (si se crea localmente)
+mssql-data/
+
+# Logs
+logs/
+*.log
+
+# Carpeta de scripts SQL (no necesaria dentro de la imagen de la app web)
+BaseDatos/

@@ -1,0 +1,167 @@
+# =============================================================
+# DOCKER COMPOSE - Sistema de Ventas .NET 8
+# Orquesta 4 contenedores que trabajan juntos:
+#   1. db        -> SQL Server 2022 (Base de Datos)
+#   2. db-init   -> Inicializador: crea tablas, inserta datos, configura SMTP y Firebase
+#   3. maildev   -> Servidor de correo SMTP de pruebas con interfaz web
+#   4. web       -> Aplicacion ASP.NET Core MVC (.NET 8)
+# =============================================================
+
+services:
+
+  # -----------------------------------------------------------
+  # CONTENEDOR 1: Base de Datos SQL Server 2022
+  # Imagen oficial de Microsoft para SQL Server en Linux
+  # -----------------------------------------------------------
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sql_server_ventas
+    environment:
+      - ACCEPT_EULA=Y
+      # Usamos la password definida en el archivo .env local
+      - MSSQL_SA_PASSWORD=${SA_PASSWORD}
+      # Zona horaria local para que GETDATE() devuelva la hora correcta
+      - TZ=America/Guayaquil
+    ports:
+      # Exponemos el puerto 14333 para evitar conflictos con SQL Server local de Windows
+      - "14333:1433"
+    volumes:
+      # Volumen persistente: los datos de la BD se guardan aunque el contenedor se detenga
+      - mssql_data:/var/opt/mssql
+    networks:
+      - red-ventas
+    # Comprobacion de salud: cada 10s verifica si SQL Server esta listo para aceptar conexiones
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P '${SA_PASSWORD}' -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+
+  # -----------------------------------------------------------
+  # CONTENEDOR 2: Inicializador de Base de Datos
+  # Espera a que SQL Server este listo, luego:
+  #   1. Crea la base de datos y las tablas (001_BaseDatos_Tablas.sql)
+  #   2. Inserta los datos iniciales (002_Inserts.sql)
+  #   3. Actualiza la tabla Configuracion con los datos de Maildev (SMTP local)
+  #   4. Actualiza Firebase con las credenciales del .env (solo en tu maquina)
+  # -----------------------------------------------------------
+  db-init:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sql_init_ventas
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - SA_PASSWORD=${SA_PASSWORD}
+      # Credenciales del correo real (del .env) para inyectar en la BD
+      - SMTP_CORREO=${SMTP_CORREO}
+      - SMTP_CLAVE=${SMTP_CLAVE}
+      - SMTP_ALIAS=${SMTP_ALIAS}
+      # Credenciales de Firebase (del .env) para inyectar en la BD
+      - FIREBASE_EMAIL=${FIREBASE_EMAIL}
+      - FIREBASE_CLAVE=${FIREBASE_CLAVE}
+      - FIREBASE_RUTA=${FIREBASE_RUTA}
+      - FIREBASE_API_KEY=${FIREBASE_API_KEY}
+    volumes:
+      # Montamos nuestra carpeta local de scripts SQL dentro del contenedor
+      - ./BaseDatos:/usr/src/scripts
+    # Comando que se ejecuta al iniciar el contenedor:
+    entrypoint: >
+      bash -c "
+      echo '====================================';
+      echo 'Iniciando configuracion de la BD...';
+      echo '====================================';
+
+      echo '1. Creando estructura de tablas (001_BaseDatos_Tablas.sql)...';
+      /opt/mssql-tools18/bin/sqlcmd -S db -U sa -P \"$${SA_PASSWORD}\" -C -i /usr/src/scripts/001_BaseDatos_Tablas.sql;
+
+      echo '2. Insertando datos iniciales (002_Inserts.sql)...';
+      /opt/mssql-tools18/bin/sqlcmd -S db -U sa -P \"$${SA_PASSWORD}\" -C -i /usr/src/scripts/002_Inserts.sql;
+
+      echo '3. Configurando SMTP -> Maildev (servidor de correo local de pruebas)...';
+      /opt/mssql-tools18/bin/sqlcmd -S db -U sa -P \"$${SA_PASSWORD}\" -C -d DBVENTA -Q \"
+        UPDATE Configuracion SET valor = 'noreply@mitienda.local' WHERE recurso = 'Servicio_Correo' AND propiedad = 'correo';
+        UPDATE Configuracion SET valor = '' WHERE recurso = 'Servicio_Correo' AND propiedad = 'clave';
+        UPDATE Configuracion SET valor = 'MiTienda.com' WHERE recurso = 'Servicio_Correo' AND propiedad = 'alias';
+        UPDATE Configuracion SET valor = 'maildev' WHERE recurso = 'Servicio_Correo' AND propiedad = 'host';
+        UPDATE Configuracion SET valor = '1025' WHERE recurso = 'Servicio_Correo' AND propiedad = 'puerto';
+        IF NOT EXISTS (SELECT 1 FROM Configuracion WHERE recurso='Servicio_Correo' AND propiedad='ssl')
+          INSERT INTO Configuracion(recurso,propiedad,valor) VALUES('Servicio_Correo','ssl','false');
+        ELSE
+          UPDATE Configuracion SET valor = 'false' WHERE recurso = 'Servicio_Correo' AND propiedad = 'ssl';
+      \";
+
+      echo '4. Inyectando credenciales de Firebase desde variables de entorno locales...';
+      /opt/mssql-tools18/bin/sqlcmd -S db -U sa -P \"$${SA_PASSWORD}\" -C -d DBVENTA -Q \"
+        UPDATE Configuracion SET valor = '$${FIREBASE_EMAIL}' WHERE recurso = 'FireBase_Storage' AND propiedad = 'email';
+        UPDATE Configuracion SET valor = '$${FIREBASE_CLAVE}' WHERE recurso = 'FireBase_Storage' AND propiedad = 'clave';
+        UPDATE Configuracion SET valor = '$${FIREBASE_RUTA}' WHERE recurso = 'FireBase_Storage' AND propiedad = 'ruta';
+        UPDATE Configuracion SET valor = '$${FIREBASE_API_KEY}' WHERE recurso = 'FireBase_Storage' AND propiedad = 'api_key';
+      \";
+
+      echo '====================================';
+      echo 'Base de datos lista correctamente!';
+      echo '====================================';
+      "
+    networks:
+      - red-ventas
+
+  # -----------------------------------------------------------
+  # CONTENEDOR 3: Maildev (Servidor de Correo SMTP de Pruebas)
+  # Intercepta todos los correos que envia la app y los muestra
+  # en una interfaz web sin que salgan a internet.
+  # Interfaz web disponible en: http://localhost:1080
+  # Puerto SMTP interno (para la app): 1025
+  # -----------------------------------------------------------
+  maildev:
+    image: maildev/maildev:latest
+    container_name: maildev_ventas
+    ports:
+      # Puerto de la interfaz web para ver los correos interceptados
+      - "1080:1080"
+      # Puerto SMTP que usara nuestra app para enviar correos
+      - "1025:1025"
+    networks:
+      - red-ventas
+
+  # -----------------------------------------------------------
+  # CONTENEDOR 4: Aplicacion Web ASP.NET Core MVC (.NET 8)
+  # Se construye usando nuestro Dockerfile multi-etapa
+  # -----------------------------------------------------------
+  web:
+    image: sistemaventa-app:latest
+    build:
+      # El contexto de build es la raiz de la solucion
+      context: .
+      # Ruta al Dockerfile dentro del contexto
+      dockerfile: SistemaVenta.AplicacionWeb/Dockerfile
+    container_name: web_ventas
+    ports:
+      # Puerto 5005 de tu PC -> Puerto 5005 interno del contenedor (definido por Kestrel en appsettings.json)
+      - "5005:5005"
+    environment:
+      # Cadena de conexion apuntando al contenedor 'db' (no a tu SQL Server local de Windows)
+      - ConnectionStrings__CadenaSQL=Server=db;Database=DBVENTA;User Id=sa;Password=${SA_PASSWORD};TrustServerCertificate=True;MultipleActiveResultSets=true
+      - ASPNETCORE_ENVIRONMENT=Development
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - red-ventas
+
+# -----------------------------------------------------------
+# REDES: Todos los contenedores se comunican en una red privada interna
+# Los contenedores se identifican entre si por su nombre de servicio
+# (ej: la app usa "db" como nombre de servidor SQL, y "maildev" como servidor SMTP)
+# -----------------------------------------------------------
+networks:
+  red-ventas:
+    driver: bridge
+
+# -----------------------------------------------------------
+# VOLUMENES: Almacenamiento persistente para la base de datos
+# Aunque detengas y vuelvas a levantar Docker, los datos de la BD se conservan
+# -----------------------------------------------------------
+volumes:
+  mssql_data:
