@@ -103,7 +103,7 @@ namespace SistemaVenta.AplicacionWeb.Controllers
                 @ViewData["Mensaje"] = null;
             }
 
-            return View(); //Pendiente ver pa q sirve y hace to este controller 
+            return View(); 
         }
     }
 }

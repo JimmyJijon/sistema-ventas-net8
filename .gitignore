@@ -50,6 +50,7 @@ logs/
 # DOCUMENTACION Y GUIAS DE DESARROLLO
 # =============================================
 # Ignorar archivos markdown de desarrollo/guías, pero conservar el README.md
+Depuracion_Correo/
 Guia_Comandos_Docker.md
 **/*.md
 !**/README.md

@@ -45,13 +45,10 @@ namespace SistemaVenta.BLL.Implementacion
                 using var cliente = new SmtpClient();
                 cliente.LocalDomain = "[127.0.0.1]";
 
-                // Auto detecta SSL/STARTTLS según el puerto (465=SSL, 587=STARTTLS, 1025=plain)
                 await cliente.ConnectAsync(host, puerto, SecureSocketOptions.Auto);
 
                 if (!string.IsNullOrWhiteSpace(clave) && cliente.Capabilities.HasFlag(SmtpCapabilities.Authentication))
                 {
-                    // Eliminar espacios. Google muestra la contraseña con espacios (ej: "abcd efgh ijkl mnop")
-                    // pero MailKit requiere que se envíe sin espacios para que Gmail la acepte.
                     string claveLimpia = clave.Replace(" ", "");
                     await cliente.AuthenticateAsync(correoOrigen, claveLimpia);
                 }
