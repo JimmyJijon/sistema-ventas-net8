@@ -75,18 +75,34 @@ services:
       echo '2. Insertando datos iniciales (002_Inserts.sql)...';
       /opt/mssql-tools/bin/sqlcmd -S db -U sa -P \"$${SA_PASSWORD}\" -i /usr/src/scripts/002_Inserts.sql;
 
-      echo '3. Configurando SMTP -> Maildev (servidor de correo local de pruebas)...';
-      /opt/mssql-tools/bin/sqlcmd -S db -U sa -P \"$${SA_PASSWORD}\" -d DBVENTA -Q \"
-        UPDATE Configuracion SET valor = 'noreply@mitienda.local' WHERE recurso = 'Servicio_Correo' AND propiedad = 'correo';
-        UPDATE Configuracion SET valor = '' WHERE recurso = 'Servicio_Correo' AND propiedad = 'clave';
-        UPDATE Configuracion SET valor = 'MiTienda.com' WHERE recurso = 'Servicio_Correo' AND propiedad = 'alias';
-        UPDATE Configuracion SET valor = 'maildev' WHERE recurso = 'Servicio_Correo' AND propiedad = 'host';
-        UPDATE Configuracion SET valor = '1025' WHERE recurso = 'Servicio_Correo' AND propiedad = 'puerto';
-        IF NOT EXISTS (SELECT 1 FROM Configuracion WHERE recurso='Servicio_Correo' AND propiedad='ssl')
-          INSERT INTO Configuracion(recurso,propiedad,valor) VALUES('Servicio_Correo','ssl','false');
-        ELSE
-          UPDATE Configuracion SET valor = 'false' WHERE recurso = 'Servicio_Correo' AND propiedad = 'ssl';
-      \";
+      echo '3. Configurando SMTP...';
+      if [ -n \"$${SMTP_CORREO}\" ]; then
+        echo '   -> Se detectaron credenciales reales en el .env. Usando Gmail.';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P \"$${SA_PASSWORD}\" -d DBVENTA -Q \"
+          UPDATE Configuracion SET valor = '$${SMTP_CORREO}' WHERE recurso = 'Servicio_Correo' AND propiedad = 'correo';
+          UPDATE Configuracion SET valor = '$${SMTP_CLAVE}' WHERE recurso = 'Servicio_Correo' AND propiedad = 'clave';
+          UPDATE Configuracion SET valor = '$${SMTP_ALIAS}' WHERE recurso = 'Servicio_Correo' AND propiedad = 'alias';
+          UPDATE Configuracion SET valor = 'smtp.gmail.com' WHERE recurso = 'Servicio_Correo' AND propiedad = 'host';
+          UPDATE Configuracion SET valor = '587' WHERE recurso = 'Servicio_Correo' AND propiedad = 'puerto';
+          IF NOT EXISTS (SELECT 1 FROM Configuracion WHERE recurso='Servicio_Correo' AND propiedad='ssl')
+            INSERT INTO Configuracion(recurso,propiedad,valor) VALUES('Servicio_Correo','ssl','true');
+          ELSE
+            UPDATE Configuracion SET valor = 'true' WHERE recurso = 'Servicio_Correo' AND propiedad = 'ssl';
+        \";
+      else
+        echo '   -> No hay credenciales en .env. Usando Maildev (servidor SMTP local de pruebas).';
+        /opt/mssql-tools/bin/sqlcmd -S db -U sa -P \"$${SA_PASSWORD}\" -d DBVENTA -Q \"
+          UPDATE Configuracion SET valor = 'noreply@mitienda.local' WHERE recurso = 'Servicio_Correo' AND propiedad = 'correo';
+          UPDATE Configuracion SET valor = '' WHERE recurso = 'Servicio_Correo' AND propiedad = 'clave';
+          UPDATE Configuracion SET valor = 'MiTienda.com' WHERE recurso = 'Servicio_Correo' AND propiedad = 'alias';
+          UPDATE Configuracion SET valor = 'maildev' WHERE recurso = 'Servicio_Correo' AND propiedad = 'host';
+          UPDATE Configuracion SET valor = '1025' WHERE recurso = 'Servicio_Correo' AND propiedad = 'puerto';
+          IF NOT EXISTS (SELECT 1 FROM Configuracion WHERE recurso='Servicio_Correo' AND propiedad='ssl')
+            INSERT INTO Configuracion(recurso,propiedad,valor) VALUES('Servicio_Correo','ssl','false');
+          ELSE
+            UPDATE Configuracion SET valor = 'false' WHERE recurso = 'Servicio_Correo' AND propiedad = 'ssl';
+        \";
+      fi;
 
       echo '4. Inyectando credenciales de Firebase desde variables de entorno locales...';
       /opt/mssql-tools/bin/sqlcmd -S db -U sa -P \"$${SA_PASSWORD}\" -d DBVENTA -Q \"

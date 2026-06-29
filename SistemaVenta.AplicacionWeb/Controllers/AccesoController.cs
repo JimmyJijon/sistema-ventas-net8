@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 
 using SistemaVenta.AplicacionWeb.Models.ViewModels;
 using SistemaVenta.BLL.Interfaces;
@@ -37,7 +37,7 @@ namespace SistemaVenta.AplicacionWeb.Controllers
         [HttpPost]
         public async Task<IActionResult> Login(VMUsuarioLogin modelo)
         {
-            if (modelo.Clave == null || modelo.Correo == null) 
+            if (modelo == null || modelo.Clave == null || modelo.Correo == null) 
             {
                 return View();
             }

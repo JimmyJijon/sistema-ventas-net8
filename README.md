@@ -55,3 +55,34 @@ El script de inicialización (`002_Inserts.sql`) crea automáticamente la base d
 * **Servidor:** `localhost,14333`
 * **Usuario:** `sa`
 * **Contraseña:** *(La que hayas definido en tu archivo .env)*
+
+## Servicio de Correo Electrónico (MailDev)
+
+El sistema incluye un servidor de correo SMTP local llamado **MailDev** que intercepta todos los correos enviados por la aplicación (recuperación de contraseña, notificaciones, etc.) y los muestra en una bandeja de entrada visual. **Los correos nunca salen a internet**, lo que hace este entorno completamente seguro para pruebas.
+
+### ¿Por qué MailDev?
+El archivo `.env` (que contiene credenciales reales de SMTP) **no se sube al repositorio** por razones de seguridad. Gracias a MailDev, el sistema funciona con correos sin necesidad de configurar ninguna cuenta externa.
+
+### Acceso a la bandeja de entrada de MailDev
+Una vez levantados los contenedores con `docker compose up -d`, puedes ver todos los correos interceptados en tu navegador:
+
+* **En local:** [http://localhost:1080](http://localhost:1080)
+* **En servidor en la nube:** `http://<IP-PUBLICA-DEL-SERVIDOR>:1080`
+
+### ¿Cómo usar un servicio de correo real (Gmail, etc.)?
+Si deseas que los correos se envíen de verdad a los destinatarios, debes editar tu archivo `.env` en la raíz del proyecto y completar las siguientes variables con tus credenciales reales:
+
+```env
+SMTP_CORREO=tu-correo@gmail.com
+SMTP_CLAVE=tu-contraseña-de-aplicacion
+SMTP_ALIAS=Nombre que aparece en el correo
+```
+
+> **Nota:** Para Gmail, debes usar una **Contraseña de Aplicación** (no tu contraseña normal). Puedes generarla en [Seguridad de tu cuenta de Google](https://myaccount.google.com/security) activando la verificación en dos pasos y luego en *Contraseñas de aplicación*.
+
+Luego reinicia los contenedores para que el inicializador de base de datos inyecte las nuevas credenciales:
+```bash
+docker compose down
+docker compose up -d
+```
+
