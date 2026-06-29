@@ -24,7 +24,6 @@ namespace SistemaVenta.BLL.Implementacion
         {
             try
             {
-                // Obtener configuración SMTP desde la base de datos
                 IQueryable<Configuracion> query = await _repositorio.Consultar(c => c.Recurso.Equals("Servicio_Correo"));
                 Dictionary<string, string> Config = query.ToDictionary(
                     keySelector: c => c.Propiedad,
@@ -36,31 +35,25 @@ namespace SistemaVenta.BLL.Implementacion
                 string alias        = Config["alias"];
                 string host         = Config["host"];
                 int    puerto       = int.Parse(Config["puerto"]);
-                bool   usarSsl      = Config.ContainsKey("ssl") && Config["ssl"].Equals("true", StringComparison.OrdinalIgnoreCase);
 
-                // Construir el mensaje con MimeKit
                 var mensaje = new MimeMessage();
                 mensaje.From.Add(new MailboxAddress(alias, correoOrigen));
                 mensaje.To.Add(new MailboxAddress(string.Empty, CorreoDestino));
                 mensaje.Subject = Asunto;
                 mensaje.Body = new TextPart("html") { Text = Mensaje };
 
-                // Enviar con MailKit (reemplazo moderno de SmtpClient, con soporte SSL real en Linux)
                 using var cliente = new SmtpClient();
+                cliente.LocalDomain = "[127.0.0.1]";
 
-                // Puerto 587 -> STARTTLS (negociación TLS después de conectar)
-                // Puerto 465 -> SSL/TLS directo
-                // Puerto 1025 (maildev) -> sin SSL
-                SecureSocketOptions socketOption = usarSsl
-                    ? (puerto == 465 ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTls)
-                    : SecureSocketOptions.None;
+                // Auto detecta SSL/STARTTLS según el puerto (465=SSL, 587=STARTTLS, 1025=plain)
+                await cliente.ConnectAsync(host, puerto, SecureSocketOptions.Auto);
 
-                await cliente.ConnectAsync(host, puerto, socketOption);
-
-                // Solo autenticar si hay credenciales (Maildev no requiere autenticación)
-                if (!string.IsNullOrWhiteSpace(clave))
+                if (!string.IsNullOrWhiteSpace(clave) && cliente.Capabilities.HasFlag(SmtpCapabilities.Authentication))
                 {
-                    await cliente.AuthenticateAsync(correoOrigen, clave);
+                    // Eliminar espacios. Google muestra la contraseña con espacios (ej: "abcd efgh ijkl mnop")
+                    // pero MailKit requiere que se envíe sin espacios para que Gmail la acepte.
+                    string claveLimpia = clave.Replace(" ", "");
+                    await cliente.AuthenticateAsync(correoOrigen, claveLimpia);
                 }
 
                 await cliente.SendAsync(mensaje);
