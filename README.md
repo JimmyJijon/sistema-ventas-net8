@@ -86,3 +86,11 @@ docker compose down
 docker compose up -d
 ```
 
+## Solución para Servidores con poca RAM (fake_meminfo)
+SQL Server exige un mínimo de **2 GB de memoria RAM** para poder iniciar. Si se intenta levantar el contenedor en servidores (como instancias micro de Google Cloud) o máquinas virtuales con menos de 2 GB, el contenedor de la base de datos se detendrá instantáneamente.
+
+Para solucionar esto de manera transparente, el repositorio incluye los archivos `sysinfo.c` y `fake_meminfo`.
+* Durante la construcción de la imagen de SQL Server (definida en el `docker-compose.yml`), este pequeño programa en C se compila y se inyecta en el contenedor.
+* Su único trabajo es interceptar las consultas del sistema operativo y decirle a SQL Server que **siempre hay 4 GB de RAM disponibles**, engañando la validación y permitiendo que la base de datos funcione perfectamente en entornos limitados.
+* **Nota de seguridad:** Estos archivos no contienen datos sensibles, variables de entorno ni credenciales. Son puramente un *bypass* técnico seguro y necesario para el despliegue.
+
