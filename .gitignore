@@ -1,7 +1,7 @@
 # =============================================
-# SEGURIDAD - NUNCA SUBIR ESTOS ARCHIVOS
+# SEGURIDAD 
 # =============================================
-# Archivo con credenciales reales (correo, Firebase)
+
 .env
 *.env
 
