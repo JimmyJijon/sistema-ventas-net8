@@ -75,7 +75,7 @@ namespace SistemaVenta.AplicacionWeb.Controllers
                 );
 
 
-            return RedirectToAction("Index","Home");
+            return RedirectToAction("Index","Dashboard");
         }
 
         [HttpPost]
