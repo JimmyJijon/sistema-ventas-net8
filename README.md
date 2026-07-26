@@ -86,11 +86,11 @@ docker compose down
 docker compose up -d
 ```
 
-## Solución para Servidores con poca RAM (fake_meminfo)
-SQL Server exige un mínimo de **2 GB de memoria RAM** para poder iniciar. Si se intenta levantar el contenedor en servidores (como instancias micro de Google Cloud) o máquinas virtuales con menos de 2 GB, el contenedor de la base de datos se detendrá instantáneamente.
+## DevOps: Optimización de Infraestructura (SQL Server RAM Bypass)
+SQL Server exige un mínimo estricto de **2 GB de memoria RAM** para poder iniciar. En entornos Cloud de recursos limitados (como instancias micro de GCP/AWS con 1 GB de RAM), el contenedor de la base de datos se detendría instantáneamente lanzando un error de hardware.
 
-Para solucionar esto de manera transparente, el repositorio incluye los archivos `sysinfo.c` y `fake_meminfo`.
-* Durante la construcción de la imagen de SQL Server (definida en el `docker-compose.yml`), este pequeño programa en C se compila y se inyecta en el contenedor.
-* Su único trabajo es interceptar las consultas del sistema operativo y decirle a SQL Server que **siempre hay 4 GB de RAM disponibles**, engañando la validación y permitiendo que la base de datos funcione perfectamente en entornos limitados.
-* **Nota de seguridad:** Estos archivos no contienen datos sensibles, variables de entorno ni credenciales. Son puramente un *bypass* técnico seguro y necesario para el despliegue.
+Para solucionar este bloqueo a nivel de sistema operativo sin necesidad de escalar los costos del servidor, se incluye la carpeta `docker-utils/`.
+* Dentro se encuentran los archivos `sysinfo.c` y `fake_meminfo`.
+* **Función:** Este script en C actúa como un interceptor (*hook*) de llamadas al sistema. Se inyecta en el contenedor de SQL Server durante la construcción (mediante `LD_PRELOAD`) para interceptar las consultas del sistema operativo y reportar **siempre 4 GB de RAM**, aprobando con éxito la validación de Microsoft.
+* **Seguridad:** Es un *bypass* técnico a nivel de hardware virtualizado. No contiene datos sensibles, credenciales, ni afecta la integridad de los datos de la base de datos. Demuestra la capacidad de adaptar tecnologías empresariales a entornos Cloud de bajo presupuesto mediante manipulación de sistema a bajo nivel.
 
